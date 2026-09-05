@@ -1,0 +1,6 @@
+The driver sources in sound/ retain their original Linux kernel SPDX license
+identifiers and copyright notices. They are licensed under the GNU General
+Public License version 2; see LICENSES/preferred/GPL-2.0.
+
+New scripts and tests are licensed under GPL-2.0-only, as identified in their
+SPDX headers. Source provenance is recorded in SOURCE.md.
