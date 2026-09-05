@@ -54,6 +54,8 @@ bash scripts/build-br-i2s.sh
 bash scripts/build-mic-align.sh
 python3 tests/test-mic-conversion.py
 python3 tests/test-mic-period.py
+python3 tests/test-pcm-allocation.py
+python3 tests/test-speaker-routes.py
 ```
 
 产物分别位于 `out/br-i2s/` 和 `out/mic-align/`，包含模块及 SHA256SUMS。
@@ -107,8 +109,62 @@ pw-play ~/mic-test.wav
 
 ## 已知问题与范围
 
-启动和 WirePlumber 探测阶段仍出现 `Memory_map_regions failed`；其具体
-触发参数尚未定位。实测后续录音、播放可用，不能宣称映射问题已经修复。
+启动和 WirePlumber 探测阶段仍出现 `Memory_map_regions failed`。
+2026-09-05 已通过 ioctl 跟踪与独立重放复现：MultiMedia1 播放，S24_LE、
+48 kHz、8 声道、2048 帧/period、8 periods（512 KiB）映射失败；同样格式
+改为 1024 帧/period（256 KiB）成功。正常双声道小缓冲区也成功。
+重启后的诊断记录为 DSP 地址 `0x1fff80000`（高位包含 SID 1），分配长度
+512 KiB。508 KiB 请求成功；再增大请求，DSP 按 4 KiB 对齐后映射末端恰好
+到下一个 32 位地址窗口，立即失败。独立测试在较低地址映射同样的 512 KiB
+成功，因此不是通用的 256 KiB 容量限制。
+
+当前源码纠正了录音端误用播放硬件限制的问题，并让映射失败日志记录 DSP
+地址、实际分配长度和请求大小，向 ALSA 保留原始错误码。这些改动已经重启
+验证，S16/S24 双声道录音完整、非静音且无越界采样。
+
+最新修复只在 nabu 的固定 PCM 分配末尾增加一页（4 KiB），避免最大 DSP
+映射碰到上述地址边界，保留原有 512 KiB 播放容量。构建、分配边界和采样
+转换回归测试通过。2026-09-05 22:24 重启后已验证加载模块，启动及两次
+WirePlumber 重启无映射失败；包括完整 512 KiB 在内的七组边界参数全部成功。
+S16/S24 双声道录音各 4 秒完整、非静音且无越界采样。播放空闲时可运行以下
+脚本复测；它只准备缓冲区，不启动播放：
+
+```sh
+python3 scripts/probe-pcm-boundary.py
+```
+
+**不要热卸载音频模块或重新绑定 APR。** 本机热卸载的依赖移除会导致 APR
+服务注册丢失；重新绑定 APR 又会出现 GLINK 重复设备和发送失败。即使恢复原
+模块也无法恢复该次运行的通信状态，需要重启。安装后按既有流程重启同一
+audio1 内核验证。
+
+功放关闭超时已在 2026-09-05 23:11 重启后的测试中消失。此前检查发现旧 DT 将 `BR/TR/BL/TL SPK`
+反接回 `MultiMedia1 Playback`，形成 DAPM 环路；实机空闲时前端 stream
+已 inactive，四个 Main AMP 却仍为 On，GLOBAL_EN 和 AMP_EN 均保持置位。
+当前 `sm8150.c` 在声卡注册前只修正 nabu 的这组旧路由，改接四个物理
+Speaker 端点，保留麦克风等其他路由及 BR 的 I²S 修复。无需替换 DTB/EFI。
+2026-09-05 22:53 重启后，已核对加载模块 build ID，四个功放的 DAPM 状态
+通过 idle=Off → 播放=On → 关闭=Off 检查。启动及仅 prepare/close 时
+仍出现关闭超时；DAPM Off 不等于芯片已完成掉电，仍需检查寄存器和时钟时序。
+S16/S24 录音及七种 PCM 缓冲区大小回归检查通过。
+
+随后实机 A/B/A 对照：前端 `pmdown_time=5000` 时七种缓冲区探测产生
+6 次超时，临时改为 0 后为 0 次，恢复 5000 后为 7 次。dummy 前端 codec
+默认延迟关闭，使功放关闭晚于后端时钟停止。当前源码对 nabu 的 dynamic
+前端设置 `ignore_pmdown_time=1`，让 hw_free 及时关闭 DAPM。
+2026-09-05 23:11 重启后已核对新模块 build ID：启动、七种缓冲区探测、
+两次 WirePlumber 重启均未出现功放关闭超时或 DSP 映射失败。四个功放
+通过 Off → On → Off 检查，S16/S24 录音完整、非全零且无越界采样。
+默认 PipeWire 录音取得非零数据并在停止请求后约 9 ms 退出，回放命令成功。
+检查命令：
+
+```sh
+sudo python3 scripts/verify-speaker-power.py
+```
+
+脚本要求播放设备空闲，检查四个功放 idle=Off、播放三秒静音时=On、关闭后=Off。
+不卸载驱动、不改 mixer、不停止桌面服务。应同时检查新启动日志是否仍有
+`Enable(0) failed` / `POST_PMD`。路由修正与前端关闭时序修正共同通过了上述验证。
 验证仅覆盖上述设备和内核，未验证其他 Qualcomm 设备的采样对齐行为。
 
 旧 QRTR、PCM V4 和全功放格式实验不属于当前源码。旧脚本、实验文件及
