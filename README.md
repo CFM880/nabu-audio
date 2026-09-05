@@ -1,7 +1,7 @@
 # nabu-audio
 
 Xiaomi Pad 5（nabu）在 Linux `6.14.11-nabu-audio1` 上的音频修复。
-直接维护 `kernel-overlay/sound/soc/qcom/` 下的完整驱动源码，构建时直接编译这些文件。
+直接维护 `kernel-overlay/sound/soc/qcom/` 和 `codecs/` 下的完整驱动源码，构建时直接编译这些文件。
 
 ## 目录
 
@@ -195,3 +195,44 @@ S16/S24 各四秒录音通过。同一录音句柄各三次 read/drop/prepare �
 默认回放成功。七种缓冲区探测通过，WirePlumber 重启后服务正常。
 本次启动及上述测试中 READ/EOS 警告、功放关闭超时、DSP 映射错误和
 UCM Mic 播放设备错误均为 0。
+
+## WCD934x 端口关闭诊断
+
+2026-09-05 后续检查仍发现 WCD934x TX5/TX6 的 FIFO overflow/underflow，
+不属于上文已消除的 READ/EOS 或 DSP 映射错误。六轮 S16/S24 各六秒录音
+正常退出，观察到的三条 FIFO 错误全部位于末尾，并带 PORT_CLOSED 状态位。
+这一相关性不能证明根因已解决，也不能单凭无日志证明录音无错误：驱动对
+FIFO 日志限速，并在 FIFO 错误后屏蔽对应端口中断。
+
+新诊断脚本分开 prepare、读取、drop、hw_free、close，保存单调时钟时间戳、
+采样数量/范围和本次内核日志；音频数据只在内存中统计，不保存录音：
+
+```sh
+python3 scripts/probe-capture-lifecycle.py --cycles 3 > lifecycle.json
+```
+
+脚本需要采集设备空闲及内核日志读取权限。首轮 100 ms 缓冲测试中，S16/S24
+各取得 384000 帧非零数据，无 ALSA 读取错误；PORT_CLOSED 出现在 drop 后
+约 4–8 ms，hw_free 和 close 阶段没有新的端口通知。
+
+随后 500 ms 缓冲的六轮测试也全部读满八秒，数据非零且在 S16/S24 有效
+范围内。两条 FIFO overflow 都出现在 drop 后约 4–5 ms，其中一条状态为
+`1`（没有 PORT_CLOSED），另一条为 `5`（同时带 PORT_CLOSED）。因此不能
+通过过滤“同时带关闭位”的错误解决此问题。录音读取、hw_free 和 close
+阶段未记录新的 FIFO 错误；停流时序仍待进一步跟踪。原始本机数据位于
+`diagnostics/tx-port-20260905-234239/`，包含最初未显式启动而超时的诊断
+尝试；当前脚本已显式调用 snd_pcm_start，后续运行成功。
+
+`codecs/wcd934x.c` 仅把 PORT_CLOSED 通知改为调试日志，保持 FIFO 错误级别、
+中断屏蔽和清除逻辑不变。Android 下游也将普通关闭通知记为 debug。
+这项改动修正日志级别，不宣称修复 FIFO 时序或改善录音质量。
+配套 audio1 模块已构建，尚未安装或重启验证：
+
+```sh
+bash scripts/build-codec-port-log.sh
+sudo bash scripts/install-codec-port-log.sh
+# 在下一次重启同一 audio1 内核后复测；不要热卸载音频模块。
+```
+
+安装器校验原始 audio1 bundle 和模块哈希并备份，支持
+`sudo bash scripts/install-codec-port-log.sh --rollback`。

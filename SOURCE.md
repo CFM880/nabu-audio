@@ -42,6 +42,14 @@ Local driver changes:
 
 No q6asm PCM V4 protocol changes or QRTR changes are included.
 
+`kernel-overlay/sound/soc/codecs/wcd934x.c`, `wcd-clsh-v2.h` and
+`wcd-mbhc-v2.h` are copied from the same baseline. The only codec change is
+to log normal SLIMbus PORT_CLOSED notifications at debug level. FIFO errors
+and interrupt handling are unchanged. Local phase-separated S16/S24 tests
+place the notification in snd_pcm_drop; the local Android downstream
+`techpack/audio/asoc/codecs/wcd934x/wcd934x.c` also uses dev_dbg for closure.
+The new module has been built but has not been deployed or boot-tested.
+
 Shell/Python tools and tests carry GPL-2.0-only SPDX identifiers. Kernel sources
 retain their existing licenses; see LICENSES/preferred/GPL-2.0. Firmware,
 third-party system UCM files, recordings and compiled modules are not included.
