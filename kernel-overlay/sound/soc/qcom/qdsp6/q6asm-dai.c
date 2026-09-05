@@ -188,18 +188,19 @@ static void q6asm_capture_s24(__le32 *samples, unsigned int count)
 
 
 /* Fixed PCM storage survives hw_free, unlike runtime->dma_area. */
-static bool q6asm_capture_s24_period(struct q6asm_dai_rtd *prtd, u32 token)
+static bool q6asm_capture_period(struct q6asm_dai_rtd *prtd, u32 token)
 {
 	struct snd_pcm_substream *substream = prtd->substream;
 	struct snd_dma_buffer *buffer = &substream->dma_buffer;
 	unsigned long flags;
 	size_t offset;
-	bool converted = false;
+	bool completed = false;
 
 	snd_pcm_stream_lock_irqsave(substream, flags);
 	/* Discard late completions after STOP/hw_free, including DSP flushes. */
 	if (!snd_pcm_running(substream) || !buffer->area ||
-	    !prtd->pcm_count || prtd->pcm_count % sizeof(__le32) ||
+	    !prtd->pcm_count ||
+	    prtd->pcm_count % (prtd->bits_per_sample == 24 ? 4 : 2) ||
 	    token >= prtd->periods)
 		goto unlock;
 
@@ -210,12 +211,13 @@ static bool q6asm_capture_s24_period(struct q6asm_dai_rtd *prtd, u32 token)
 		goto unlock;
 
 	offset = (size_t)token * prtd->pcm_count;
-	q6asm_capture_s24((__le32 *)(buffer->area + offset),
-			  prtd->pcm_count / sizeof(__le32));
-	converted = true;
+	if (prtd->bits_per_sample == 24)
+		q6asm_capture_s24((__le32 *)(buffer->area + offset),
+				  prtd->pcm_count / sizeof(__le32));
+	completed = true;
 unlock:
 	snd_pcm_stream_unlock_irqrestore(substream, flags);
-	return converted;
+	return completed;
 }
 
 static void event_handler(uint32_t opcode, uint32_t token,
@@ -243,8 +245,7 @@ static void event_handler(uint32_t opcode, uint32_t token,
 		break;
 		}
 	case ASM_CLIENT_EVENT_DATA_READ_DONE:
-		if (prtd->bits_per_sample == 24 &&
-		    !q6asm_capture_s24_period(prtd, token))
+		if (!q6asm_capture_period(prtd, token))
 			break;
 		prtd->pcm_irq_pos += prtd->pcm_count;
 		snd_pcm_period_elapsed(substream);
@@ -376,8 +377,12 @@ static int q6asm_dai_trigger(struct snd_soc_component *component,
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 		prtd->state = Q6ASM_STREAM_STOPPED;
+		/* EOS terminates playback data; a capture session has no input
+		 * EOS to render. Pause capture until prepare/close tears it down.
+		 */
 		ret = q6asm_cmd_nowait(prtd->audio_client, prtd->stream_id,
-				       CMD_EOS);
+				       substream->stream == SNDRV_PCM_STREAM_PLAYBACK ?
+				       CMD_EOS : CMD_PAUSE);
 		break;
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:

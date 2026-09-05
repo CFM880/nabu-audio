@@ -170,3 +170,28 @@ sudo python3 scripts/verify-speaker-power.py
 旧 QRTR、PCM V4 和全功放格式实验不属于当前源码。旧脚本、实验文件及
 详细过程记录已移入本机 `diagnostics/pre-submit-20260905/` 归档。
 内核来源和许可证见 SOURCE.md、COPYING。
+
+## 后续麦克风修复
+
+`scripts/fix-ucm-mic-channels.py --install` 只将系统 UCM 的 Mic
+`PlaybackChannels 2` 改为 `CaptureChannels 2`，按原文件 SHA256 备份到
+`/var/lib/nabu-audio/ucm-mic/`，保留其他配置。2026-09-05 已安装并验证
+ALSA 返回 CaptureChannels=2，重启 WirePlumber 后原 Mic 播放设备警告
+消失，三次默认录音均取得非零数据并正常停止。无需重启系统。
+
+连续三次 prepare/close 的实机对照：S16 产生 15 条 READ 响应警告，
+S24 为 0。当前源码将原 S24 的运行状态及周期边界检查用于 S16，
+仅 S24 执行位移转换，避免 S16 关闭时处理迟到回调并再次提交读取。
+2026-09-05 23:24 重启后已核对模块，S16/S24 各三次 prepare/close
+均为 0 条 READ 警告；启动和 WirePlumber 重启亦未复现。S16/S24
+各四秒录音完整、非全零且无越界采样。
+
+此前录音 STOP 各产生一条 EOS 响应警告。当前源码改为对 capture 发送
+CMD_PAUSE，随后由 prepare/close 清理会话，播放仍使用 CMD_EOS。
+`tests/test-pcm-stop.py` 提取实际 trigger 函数，验证方向、停止状态及
+错误返回；测试通过。2026-09-05 23:28 重启后已核对加载模块，
+S16/S24 各四秒录音通过。同一录音句柄各三次 read/drop/prepare 循环
+全部完成，三次默认 PipeWire 录音重开取得非零数据，停止耗时约 8–16 ms，
+默认回放成功。七种缓冲区探测通过，WirePlumber 重启后服务正常。
+本次启动及上述测试中 READ/EOS 警告、功放关闭超时、DSP 映射错误和
+UCM Mic 播放设备错误均为 0。

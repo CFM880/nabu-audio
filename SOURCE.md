@@ -54,3 +54,19 @@ third-party system UCM files, recordings and compiled modules are not included.
   Clean boot at 23:11 verified the loaded module: boot, seven buffer probes
   and two WirePlumber restarts had zero shutdown timeouts or map failures.
   All four amplifier widgets passed Off/On/Off; S16/S24 capture passed.
+
+- `q6asm-dai.c`: extend capture completion validation to S16 without converting
+  its samples. Three prepare/close cycles reproduced 15 READ warnings in S16
+  and none in S24. Shared stopped-stream and bounds checks pass regression
+  tests. Clean boot at 23:24 verified zero READ warnings for three S16 and
+  three S24 prepare/close cycles, boot and WirePlumber restart. S16/S24
+  capture each completed four seconds without invalid samples.
+- `scripts/fix-ucm-mic-channels.py`: surgical local UCM direction correction
+  with a content-addressed backup; no third-party configuration is vendored.
+
+- `q6asm-dai.c`: send PAUSE on capture STOP rather than playback EOS; keep
+  playback STOP unchanged. Actual-trigger regression covers both directions,
+  stopped state and error propagation. Clean boot at 23:28 verified S16/S24
+  capture, three read/drop/prepare cycles per format on the same handle,
+  three default PipeWire capture cycles and playback, buffer probes and
+  WirePlumber restarts. No READ/EOS, amp shutdown or map errors occurred.

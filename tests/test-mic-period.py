@@ -33,7 +33,7 @@ struct snd_pcm_substream {
 };
 struct q6asm_dai_rtd {
     struct snd_pcm_substream *substream;
-    unsigned int pcm_count, pcm_size, periods;
+    unsigned int pcm_count, pcm_size, periods, bits_per_sample;
 };
 static int locked;
 #define snd_pcm_stream_lock_irqsave(s, f) do { \
@@ -57,43 +57,51 @@ int main(void)
         .runtime = &runtime,
     };
     struct q6asm_dai_rtd prtd = {
-        .substream = &stream, .pcm_count = 8, .pcm_size = sizeof(words), .periods = 3,
+        .substream = &stream, .bits_per_sample = 24, .pcm_count = 8, .pcm_size = sizeof(words), .periods = 3,
     };
     for (int i = 0; i < 6; i++)
         words[i] = htole32((uint32_t)(i - 3) << 8);
     memcpy(saved, words, sizeof(words));
     /* The crash case: completion after STOP/hw_free cleared runtime DMA. */
-    assert(!q6asm_capture_s24_period(&prtd, 0));
+    assert(!q6asm_capture_period(&prtd, 0));
     assert(!locked && !memcmp(saved, words, sizeof(words)));
     stream.running = true;
     /* Convert only the token's period using persistent fixed storage. */
-    assert(q6asm_capture_s24_period(&prtd, 1));
+    assert(q6asm_capture_period(&prtd, 1));
     assert((int32_t)le32toh(words[2]) == -1 && words[3] == 0);
     assert(words[0] == saved[0] && words[1] == saved[1]);
     assert(words[4] == saved[4] && words[5] == saved[5]);
-    assert(q6asm_capture_s24_period(&prtd, 2));
+    assert(q6asm_capture_period(&prtd, 2));
     assert(le32toh(words[4]) == 1 && le32toh(words[5]) == 2);
     memcpy(saved, words, sizeof(words));
-    assert(!q6asm_capture_s24_period(&prtd, 3));
-    assert(!q6asm_capture_s24_period(&prtd, UINT32_MAX));
+    assert(!q6asm_capture_period(&prtd, 3));
+    assert(!q6asm_capture_period(&prtd, UINT32_MAX));
     prtd.periods = UINT32_MAX;
-    assert(!q6asm_capture_s24_period(&prtd, UINT32_MAX - 1));
+    assert(!q6asm_capture_period(&prtd, UINT32_MAX - 1));
     prtd.pcm_size = 16;
-    assert(!q6asm_capture_s24_period(&prtd, 2));
+    assert(!q6asm_capture_period(&prtd, 2));
     prtd.pcm_size = 32;
-    assert(!q6asm_capture_s24_period(&prtd, 0));
+    assert(!q6asm_capture_period(&prtd, 0));
     prtd.pcm_size = sizeof(words);
     prtd.pcm_count = 32;
-    assert(!q6asm_capture_s24_period(&prtd, 0));
+    assert(!q6asm_capture_period(&prtd, 0));
     prtd.pcm_count = 0;
-    assert(!q6asm_capture_s24_period(&prtd, 0));
+    assert(!q6asm_capture_period(&prtd, 0));
     prtd.pcm_count = 7;
-    assert(!q6asm_capture_s24_period(&prtd, 0));
+    assert(!q6asm_capture_period(&prtd, 0));
     prtd.pcm_count = 8;
     stream.dma_buffer.area = NULL;
-    assert(!q6asm_capture_s24_period(&prtd, 0));
+    assert(!q6asm_capture_period(&prtd, 0));
     assert(!locked && !memcmp(saved, words, sizeof(words)));
-    puts("Late completion, fixed DMA storage, period selection and bounds passed.");
+    /* S16 must discard close/flush callbacks too, without changing samples. */
+    stream.dma_buffer.area = (unsigned char *)words;
+    prtd.bits_per_sample = 16;
+    stream.running = false;
+    assert(!q6asm_capture_period(&prtd, 0));
+    stream.running = true;
+    assert(q6asm_capture_period(&prtd, 0));
+    assert(!memcmp(saved, words, sizeof(words)));
+    puts("S16/S24 late completion, fixed storage and bounds passed.");
     return 0;
 }
 '''
