@@ -4,7 +4,7 @@
 import subprocess
 from pathlib import Path
 repo = Path(__file__).resolve().parent.parent
-source = (repo / 'sound/soc/qcom/qdsp6/q6asm-dai.c').read_text()
+source = (repo / 'kernel-overlay/sound/soc/qcom/qdsp6/q6asm-dai.c').read_text()
 start = source.index('static void q6asm_capture_s24(')
 end = source.index('\n}', start) + 2
 helper = source[start:end]

@@ -7,7 +7,7 @@ from pathlib import Path
 repo = Path(__file__).resolve().parent.parent
 work = repo / 'out/mic-align'
 work.mkdir(parents=True, exist_ok=True)
-source = (repo / 'sound/soc/qcom/qdsp6/q6asm-dai.c').read_text()
+source = (repo / 'kernel-overlay/sound/soc/qcom/qdsp6/q6asm-dai.c').read_text()
 start = source.index('static void q6asm_capture_s24(')
 end = source.index('\nstatic void event_handler(', start)
 helpers = source[start:end]

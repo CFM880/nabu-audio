@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 set -euo pipefail
 repo=$(cd -- "$(dirname -- "$0")/.." && pwd)
-source=$repo
+source=$repo/kernel-overlay
 build=${KERNEL_BUILD:-$repo/out/audio1/build}
 work=$repo/out/br-i2s
 release=6.14.11-nabu-audio1
