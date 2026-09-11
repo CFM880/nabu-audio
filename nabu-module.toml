@@ -1,0 +1,28 @@
+schema = 1
+
+[module]
+name        = "nabu-audio"
+description = "WCD934x / q6asm / SM8150 machine driver (in-tree overlay)"
+requires    = []
+
+[provides]
+overlay = "kernel-overlay"
+config  = ["config/nabu-audio.config"]
+
+[build]
+kernel_targets = [
+    "sound/soc/qcom/snd-soc-sm8150.ko",
+    "sound/soc/codecs/snd-soc-wcd934x.ko",
+    "sound/soc/qcom/qdsp6/q6asm-dai.ko",
+]
+
+[artifacts]
+"snd-soc-sm8150.ko"  = "out:sound/soc/qcom/snd-soc-sm8150.ko"
+"snd-soc-wcd934x.ko" = "out:sound/soc/codecs/snd-soc-wcd934x.ko"
+"q6asm-dai.ko"       = "out:sound/soc/qcom/qdsp6/q6asm-dai.ko"
+
+[install]
+"snd-soc-sm8150.ko"  = "/lib/modules/@release@/kernel/sound/soc/qcom/snd-soc-sm8150.ko"
+"snd-soc-wcd934x.ko" = "/lib/modules/@release@/kernel/sound/soc/codecs/snd-soc-wcd934x.ko"
+"q6asm-dai.ko"       = "/lib/modules/@release@/kernel/sound/soc/qcom/qdsp6/q6asm-dai.ko"
+"config/51-nabu-mic-s16.conf" = "/etc/alsa/conf.d/51-nabu-mic-s16.conf"

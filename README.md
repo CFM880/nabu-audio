@@ -10,7 +10,7 @@ Xiaomi Pad 5（nabu）在 Linux `6.14.11-nabu-audio1` 上的音频修复。
 ```text
 kernel-overlay/   保留 Linux 相对路径的完整音频驱动源码及本地头文件
 config/           用于识别旧 S16 临时限制的 WirePlumber 配置
-scripts/          源码覆盖、模块构建、安装和实机验证工具
+scripts/          模块构建、安装和实机验证工具
 tests/            采样转换与缓冲区生命周期回归测试
 LICENSES/         源码许可证文本
 ```
@@ -18,15 +18,14 @@ LICENSES/         源码许可证文本
 ## 放入内核树
 
 目标 Linux Git 工作树必须位于基线
-`5181e1358ddd6ea8028e841d928942373e6aebc8`：
+`5181e1358ddd6ea8028e841d928942373e6aebc8`。本仓库不再自带覆盖脚本，
+由同级的 `nabu-main` 统一 reset、应用 `kernel-overlay` 并按产品组合：
 
 ```sh
-./scripts/apply-overlay.sh ../linux
+cd ../nabu-main && make apply
 ```
 
-脚本复制完整源码，可重复运行，允许相机、Iris 等不重叠改动；遇到目标路径的
-未知修改会停止。复制后可用 `git -C ../linux diff` 审查。
-也可使用下面的模块构建流程，直接编译本仓库覆盖层，无需先复制到内核树。
+也可以在模块内直接编译覆盖层源码（见下方“构建”），无需先复制到内核树。
 
 ## 已验证的修复
 
