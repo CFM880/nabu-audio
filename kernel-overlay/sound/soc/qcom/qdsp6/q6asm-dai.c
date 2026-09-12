@@ -6,6 +6,7 @@
 #include <linux/init.h>
 #include <linux/err.h>
 #include <linux/module.h>
+#include <linux/version.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
@@ -1083,9 +1084,15 @@ static int q6asm_dai_compr_trigger(struct snd_soc_component *component,
 	return ret;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
+static int q6asm_dai_compr_pointer(struct snd_soc_component *component,
+				   struct snd_compr_stream *stream,
+				   struct snd_compr_tstamp64 *tstamp)
+#else
 static int q6asm_dai_compr_pointer(struct snd_soc_component *component,
 				   struct snd_compr_stream *stream,
 				   struct snd_compr_tstamp *tstamp)
+#endif
 {
 	struct snd_compr_runtime *runtime = stream->runtime;
 	struct q6asm_dai_rtd *prtd = runtime->private_data;
