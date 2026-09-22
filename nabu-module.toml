@@ -14,15 +14,18 @@ kernel_targets = [
     "sound/soc/qcom/snd-soc-sm8150.ko",
     "sound/soc/codecs/snd-soc-wcd934x.ko",
     "sound/soc/qcom/qdsp6/q6asm-dai.ko",
+    "drivers/slimbus/slim-qcom-ngd-ctrl.ko",
 ]
 
 [artifacts]
-"snd-soc-sm8150.ko"  = "out:sound/soc/qcom/snd-soc-sm8150.ko"
-"snd-soc-wcd934x.ko" = "out:sound/soc/codecs/snd-soc-wcd934x.ko"
-"q6asm-dai.ko"       = "out:sound/soc/qcom/qdsp6/q6asm-dai.ko"
+"snd-soc-sm8150.ko"    = "out:sound/soc/qcom/snd-soc-sm8150.ko"
+"snd-soc-wcd934x.ko"   = "out:sound/soc/codecs/snd-soc-wcd934x.ko"
+"q6asm-dai.ko"         = "out:sound/soc/qcom/qdsp6/q6asm-dai.ko"
+"slim-qcom-ngd-ctrl.ko" = "out:drivers/slimbus/slim-qcom-ngd-ctrl.ko"
 
 [install]
-"snd-soc-sm8150.ko"  = "/lib/modules/@release@/kernel/sound/soc/qcom/snd-soc-sm8150.ko"
-"snd-soc-wcd934x.ko" = "/lib/modules/@release@/kernel/sound/soc/codecs/snd-soc-wcd934x.ko"
-"q6asm-dai.ko"       = "/lib/modules/@release@/kernel/sound/soc/qcom/qdsp6/q6asm-dai.ko"
+"snd-soc-sm8150.ko"      = "/lib/modules/@release@/kernel/sound/soc/qcom/snd-soc-sm8150.ko"
+"snd-soc-wcd934x.ko"     = "/lib/modules/@release@/kernel/sound/soc/codecs/snd-soc-wcd934x.ko"
+"q6asm-dai.ko"           = "/lib/modules/@release@/kernel/sound/soc/qcom/qdsp6/q6asm-dai.ko"
+"slim-qcom-ngd-ctrl.ko"  = "/lib/modules/@release@/kernel/drivers/slimbus/slim-qcom-ngd-ctrl.ko"
 "config/51-nabu-mic-s16.conf" = "/etc/alsa/conf.d/51-nabu-mic-s16.conf"
