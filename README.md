@@ -276,3 +276,33 @@ sudo bash scripts/install-codec-port-log.sh
 
 The installer verifies and backs up the original audio1 bundle and module hashes, and supports
 `sudo bash scripts/install-codec-port-log.sh --rollback`.
+
+## Fixes: intermittent missing sound card and TX FIFO overflow (2026-09-22)
+
+Two audio problems found on the unified `6.14.11-nabu1` kernel are fixed and verified.
+
+### Intermittent missing sound card (SLIM NGD)
+Symptom: on some boots `/proc/asound/cards` is empty, with
+`qcom,slim-ngd-ctrl ... QMI wait timeout` and
+`platform sound: deferred probe pending: snd-sm8150: SLIM Capture 1: codec dai not found`.
+
+Root cause: mainline `qcom_slim_ngd_up_worker()` waits only one second for the QMI service
+(`wait_for_completion_interruptible_timeout(&ctrl->qmi_up, 1s)`) and returns without retrying. If the
+QMI service arrives 1–2 s later, the SLIM controller is never registered and the WCD934x codec never
+enumerates. Android's downstream `ngd_dom_up()` waits unbounded.
+
+Fix: `kernel-overlay/drivers/slimbus/qcom-ngd-ctrl.c` now waits unbounded (matching Android), and
+`nabu-module.toml` declares `slim-qcom-ngd-ctrl.ko`. Three consecutive reboots brought up the sound
+card, codec enumeration, and capture every time.
+
+### TX5/TX6 FIFO overflow
+Root cause: `wcd934x_trigger()` only tore down the SLIM channel on STOP without first disabling the
+codec-side TX port, so the decimator kept filling the port FIFO after the channel was removed,
+raising `overflow error on TX port 6` about 1.3 ms after `drop`.
+
+Fix: write `SLAVE_PORT_DISABLE` before the teardown, and use a `port_disabled` flag so the port is
+re-enabled on START only after an actual teardown (avoiding a redundant first-start write that resets
+the FIFO).
+
+Verified with `scripts/probe-capture-lifecycle.py --cycles 3`: overflow 2 -> 0 across two runs, with
+complete non-silent capture; only a rare setup-time underflow transient remains.

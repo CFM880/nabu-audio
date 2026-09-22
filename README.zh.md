@@ -237,3 +237,32 @@ sudo bash scripts/install-codec-port-log.sh
 
 安装器校验原始 audio1 bundle 和模块哈希并备份，支持
 `sudo bash scripts/install-codec-port-log.sh --rollback`。
+
+## 修复：启动偶发无声卡与 TX FIFO overflow（2026-09-22）
+
+在统一 `6.14.11-nabu1` 内核上发现并修复两个音频问题（均已验证）。
+
+### 启动偶发无声卡（SLIM NGD）
+现象：某些启动后 `/proc/asound/cards` 为空，日志为
+`qcom,slim-ngd-ctrl ... QMI wait timeout` 与
+`platform sound: deferred probe pending: snd-sm8150: SLIM Capture 1: codec dai not found`。
+
+根因：mainline `qcom_slim_ngd_up_worker()` 只用 1 秒等待 QMI 服务
+（`wait_for_completion_interruptible_timeout(&ctrl->qmi_up, 1s)`），超时就返回且不重试；
+QMI 服务 1–2 秒后才到便永久不再注册 SLIM 控制器，WCD934x 因而无法枚举。
+Android 下游的 `ngd_dom_up()` 使用无限等待。
+
+修复：`kernel-overlay/drivers/slimbus/qcom-ngd-ctrl.c` 改为无限等待（对齐 Android），
+并在 `nabu-module.toml` 声明 `slim-qcom-ngd-ctrl.ko`。连续三次重启验证声卡、
+codec 枚举与采集均正常。
+
+### TX5/TX6 FIFO overflow
+根因：`wcd934x_trigger()` 在 STOP 时只拆 SLIM 通道，未先关闭 codec 侧 TX 端口，
+抽取器在通道移除后继续写端口 FIFO，`drop` 后约 1.3 ms 报
+`overflow error on TX port 6`。
+
+修复：STOP 前先写 `SLAVE_PORT_DISABLE`，并用 `port_disabled` 标志保证只在确实被
+禁用过时才在 START 重新使能，避免首次 START 的多余写复位 FIFO。
+
+验证（`scripts/probe-capture-lifecycle.py --cycles 3`）：overflow 由 2 降为 0
+（两次运行），采集数据完整、非静音；仅剩极偶发的 setup 瞬态 underflow。
