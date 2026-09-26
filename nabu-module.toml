@@ -8,6 +8,7 @@ requires    = []
 [provides]
 overlay = "kernel-overlay"
 config  = ["config/nabu-audio.config"]
+modules_load = ["config/nabu-audio.conf"]
 
 [build]
 kernel_targets = [
@@ -29,3 +30,4 @@ kernel_targets = [
 "q6asm-dai.ko"           = "/lib/modules/@release@/kernel/sound/soc/qcom/qdsp6/q6asm-dai.ko"
 "slim-qcom-ngd-ctrl.ko"  = "/lib/modules/@release@/kernel/drivers/slimbus/slim-qcom-ngd-ctrl.ko"
 "config/51-nabu-mic-s16.conf" = "/etc/alsa/conf.d/51-nabu-mic-s16.conf"
+"modules_load/nabu-audio.conf" = "/etc/modules-load.d/nabu-audio.conf"
