@@ -200,7 +200,6 @@ static bool q6asm_capture_period(struct q6asm_dai_rtd *prtd, u32 token)
 	/* Discard late completions after STOP/hw_free, including DSP flushes. */
 	if (!snd_pcm_running(substream) || !buffer->area ||
 	    !prtd->pcm_count ||
-	    prtd->pcm_count % (prtd->bits_per_sample == 24 ? 4 : 2) ||
 	    token >= prtd->periods)
 		goto unlock;
 
