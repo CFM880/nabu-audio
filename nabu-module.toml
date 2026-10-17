@@ -31,3 +31,4 @@ kernel_targets = [
 "slim-qcom-ngd-ctrl.ko"  = "/lib/modules/@release@/kernel/drivers/slimbus/slim-qcom-ngd-ctrl.ko"
 "config/51-nabu-mic-s16.conf" = "/etc/alsa/conf.d/51-nabu-mic-s16.conf"
 "modules_load/nabu-audio.conf" = "/etc/modules-load.d/nabu-audio.conf"
+"config/nabu-audio-modprobe.conf" = "/etc/modprobe.d/nabu-audio.conf"
